@@ -47,6 +47,7 @@ def filter_stations(stations):
         tags = s.get("tags", "").lower()
         combined = name + " " + tags
         url = s.get("url_resolved") or s.get("url", "")
+        bitrate = int(s.get("bitrate", 0))
 
         if not url:
             continue
@@ -55,6 +56,8 @@ def filter_stations(stations):
         if name in seen_names:
             continue
         if any(b in combined for b in blocked_keywords):
+            continue
+        if bitrate == 0:
             continue
 
         allowed.append(s)
@@ -120,13 +123,11 @@ def main(stdscr):
         stdscr.clear()
         h, w = stdscr.getmaxyx()
 
-        # layout: art on left, station list on right
         art_width = 42
         divider_col = art_width + 1
         list_col = divider_col + 2
         list_width = w - list_col - 1
 
-        # draw ASCII art on the left
         for i, line in enumerate(art_lines):
             if i >= h - 1:
                 break
@@ -135,14 +136,12 @@ def main(stdscr):
             except:
                 pass
 
-        # draw vertical divider
         for row in range(h - 1):
             try:
                 stdscr.addstr(row, divider_col, "│", curses.color_pair(5))
             except:
                 pass
 
-        # right panel header
         row = 0
         sep = "─" * list_width
 
@@ -153,7 +152,6 @@ def main(stdscr):
         except:
             pass
 
-        # station list rows available
         list_rows = h - row - 4
         if list_rows < 1:
             list_rows = 1
@@ -187,7 +185,6 @@ def main(stdscr):
                 pass
             row += 1
 
-        # footer on right panel
         try:
             scroll_info = f"[{current+1}/{len(stations)}]"
             stdscr.addstr(row, list_col, sep[:list_width], curses.color_pair(5)); row += 1
@@ -221,7 +218,12 @@ def main(stdscr):
             country = stations[current].get("countrycode", "??")
             status = f"transmitting: {name} [{country}]"
             process = subprocess.Popen(
-                ["mpv", "--no-video", "--really-quiet", url],
+                ["mpv", "--no-video", "--really-quiet",
+                 "--cache=yes",
+                 "--cache-secs=10",
+                 "--demuxer-max-bytes=50M",
+                 "--demuxer-readahead-secs=10",
+                 url],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL
             )
